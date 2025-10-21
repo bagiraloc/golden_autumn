@@ -44,7 +44,7 @@ th {
     color: #f6c453;
     border-bottom: 2px solid #f6c453;
 }
-tr.new-row {
+tr.highlight {
     animation: slideUp 0.8s ease-out;
 }
 @keyframes slideUp {
@@ -64,13 +64,13 @@ tr.new-row {
     100% { transform: translateY(110vh) rotate(360deg); }
 }
 .crown {
-    animation: crownPulse 2.5s ease-in-out infinite;
+    animation: crownPulse 3s ease-in-out infinite;
 }
 @keyframes crownPulse {
     0%, 100% { text-shadow: 0 0 10px #ffd700; }
     50% { text-shadow: 0 0 25px #ffea00; }
 }
-button, .stButton>button {
+.stButton>button {
     background: linear-gradient(90deg, #f6c453, #b8860b);
     color: #1a1a1a !important;
     border: none;
@@ -79,18 +79,18 @@ button, .stButton>button {
     padding: 0.6rem 1.2rem;
     cursor: pointer;
 }
-button:hover {
+.stButton>button:hover {
     background: linear-gradient(90deg, #ffd700, #f6c453);
 }
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------- Листочки --------------------
+# -------------------- Анімація листочків (постійна) --------------------
 leaves_html = ""
-for i in range(25):
+for i in range(35):
     left = random.randint(0, 100)
     duration = random.uniform(15, 30)
-    delay = random.uniform(0, 15)
+    delay = random.uniform(0, 25)
     size = random.uniform(22, 38)
     leaf = random.choice(["🍁", "🍂", "🍃"])
     leaves_html += f'<div class="leaf" style="left:{left}vw; animation-duration:{duration}s; animation-delay:{delay}s; font-size:{size}px;">{leaf}</div>'
@@ -128,23 +128,21 @@ if add_btn:
             st.session_state.results = st.session_state.results.sort_values(by="Оцінка", ascending=False).reset_index(drop=True)
             st.session_state.results["Місце"] = st.session_state.results.index + 1
             st.session_state.last_added = name
-            st.rerun()
         except ValueError:
             st.error("❌ Неправильний формат оцінки! Використовуйте крапку або кому.")
 
 if clear_btn:
     st.session_state.results = pd.DataFrame(columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
     st.session_state.last_added = None
-    st.rerun()
 
 # -------------------- Відображення --------------------
 if not st.session_state.results.empty:
     df = st.session_state.results.copy()
     df.iloc[0, 1] = f"<span class='crown'>👑 {df.iloc[0, 1]}</span>"
-    table_html = df.to_html(index=False, escape=False)
-    if st.session_state.last_added:
-        # Анімація для останньої доданої учасниці
-        name = st.session_state.last_added
-        table_html = table_html.replace(name, f"<tr class='new-row'><td colspan='5'></td></tr>{name}")
-        st.session_state.last_added = None
-    st.markdown(table_html, unsafe_allow_html=True)
+
+    html = "<table><thead><tr>" + "".join([f"<th>{c}</th>" for c in df.columns]) + "</tr></thead><tbody>"
+    for _, row in df.iterrows():
+        cls = "highlight" if row["Ім’я"].replace("👑 ", "") == st.session_state.last_added else ""
+        html += "<tr class='{0}'>" + "".join([f"<td>{x}</td>" for x in row.values]) + "</tr>".format(cls)
+    html += "</tbody></table>"
+    st.markdown(html, unsafe_allow_html=True)
