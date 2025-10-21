@@ -101,8 +101,8 @@ with st.expander("🔒 Панель судді", expanded=True):
     score = col4.number_input("Оцінка", min_value=0.0, max_value=60.0, step=0.05)
 
     col5, col6 = st.columns([1,1])
-    add_btn = col5.button("➕ Додати учасницю")
-    clear_btn = col6.button("🧹 Очистити таблицю")
+    add_btn = col5.button("➕ Додати учасницю", key="add")
+    clear_btn = col6.button("🧹 Очистити таблицю", key="clear")
 
 # -------------------- Обробка --------------------
 if add_btn:
@@ -112,11 +112,11 @@ if add_btn:
         st.session_state.results["Оцінка"] = st.session_state.results["Оцінка"].astype(float)
         st.session_state.results = st.session_state.results.sort_values(by="Оцінка", ascending=False).reset_index(drop=True)
         st.session_state.results["Місце"] = st.session_state.results.index + 1
-        st.experimental_rerun()
+        st.rerun()  # <- ВАЖЛИВО!
 
 if clear_btn:
     st.session_state.results = pd.DataFrame(columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
-    st.experimental_rerun()
+    st.rerun()
 
 # -------------------- Відображення --------------------
 if not st.session_state.results.empty:
