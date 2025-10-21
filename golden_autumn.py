@@ -2,145 +2,185 @@ import streamlit as st
 import pandas as pd
 import random
 
-# ---------------- Налаштування сторінки ----------------
+# ---------- Page config ----------
 st.set_page_config(page_title="Золота Осінь 2025", layout="wide")
 
-# ---------------- Темна стилізація ----------------
-st.markdown("""
+# ---------- Styles (force dark theme + animations) ----------
+st.markdown(
+    """
 <style>
-body {
-    background-color: #0d0d0d;
-    color: #f6c453;
-    overflow-x: hidden;
+/* Force dark background for Streamlit app container */
+.stApp, .css-1dp5vir {
+  background-color: #0d0d0d !important;
+  color: #f6c453 !important;
 }
-h1 {
-    text-align: center;
-    color: #f6c453;
-    font-weight: bold;
-    text-shadow: 0 0 20px #f6c453;
-    animation: glow 2s ease-in-out infinite alternate;
-}
-@keyframes glow {
-    from { text-shadow: 0 0 10px #f6c453; }
-    to { text-shadow: 0 0 35px #ffd700; }
-}
+
+/* General text / header */
+h1 { text-align:center; color:#f6c453; text-shadow:0 0 20px #f6c453; }
+
+/* Leaves */
 .leaf {
-    position: fixed;
-    top: -10vh;
-    color: #ffd700;
-    font-size: 28px;
-    opacity: 0.8;
-    animation: fall linear infinite;
-    z-index: -1;
+  position: fixed;
+  top: -12vh;
+  color: #ffd54f !important;
+  font-size: 28px;
+  opacity: 0.95;
+  animation: fall linear infinite;
+  z-index: 0;
 }
 @keyframes fall {
-    0% { transform: translateY(0) rotate(0deg); }
-    100% { transform: translateY(110vh) rotate(360deg); }
+  0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(120vh) rotate(360deg); opacity: 0.08; }
 }
-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: rgba(30,30,30,0.9);
-    border-radius: 14px;
-    box-shadow: 0 0 20px rgba(246,196,83,0.3);
+
+/* Table */
+.table-wrap { width:100%; overflow:auto; }
+.results-table {
+  width:100%; border-collapse: collapse; background: rgba(25,25,25,0.95); color:#f6c453;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6); border-radius:12px;
 }
-th, td {
-    padding: 10px;
-    text-align: center;
-    font-size: 18px;
-    color: #f6c453;
+.results-table th, .results-table td {
+  padding:10px; text-align:center; border-bottom:1px solid rgba(246,196,83,0.08);
 }
-th {
-    background-color: #1e1e1e;
-    border-bottom: 2px solid #f6c453;
+.results-table th {
+  background:#151515; color:#f6c453; font-weight:600; position: sticky; top:0;
 }
-tr.highlight {
-    animation: slideUp 0.8s ease-out;
+
+/* Highlight (new row animation) */
+.row-new {
+  animation: slideUp 0.9s cubic-bezier(.2,.8,.2,1);
+  background: linear-gradient(90deg, rgba(246,196,83,0.06), rgba(246,196,83,0.02));
 }
 @keyframes slideUp {
-    from { transform: translateY(50px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+  from { transform: translateY(40px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
 }
-.crown {
-    animation: crownPulse 3s ease-in-out infinite;
-}
+
+/* Crown animation for leader */
+.crown { display:inline-block; animation: crownPulse 2.2s ease-in-out infinite; }
 @keyframes crownPulse {
-    0%, 100% { text-shadow: 0 0 10px #ffd700; }
-    50% { text-shadow: 0 0 25px #ffea00; }
+  0%,100% { transform: scale(1); text-shadow: 0 0 10px #ffd54f; }
+  50%    { transform: scale(1.12); text-shadow: 0 0 30px #ffea7a; }
 }
+
+/* Buttons */
 .stButton>button {
-    background: linear-gradient(90deg, #f6c453, #b8860b);
-    color: #0d0d0d !important;
-    border: none;
-    border-radius: 8px;
-    font-weight: bold;
-    padding: 0.6rem 1.2rem;
-}
-.stButton>button:hover {
-    background: linear-gradient(90deg, #ffd700, #f6c453);
+  background: linear-gradient(90deg, #f6c453, #b8860b) !important;
+  color:#0d0d0d !important; border:none; border-radius:8px; padding:8px 14px;
 }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
-# ---------------- Листочки ----------------
+# ---------- Leaves HTML (gold maple leaves only) ----------
 leaves_html = ""
-for i in range(25):
-    left = random.randint(0, 100)
-    duration = random.uniform(15, 30)
-    delay = random.uniform(0, 25)
-    leaf = random.choice(["🍁", "🍁", "🍂", "🍁"])
-    leaves_html += f'<div class="leaf" style="left:{left}vw; animation-duration:{duration}s; animation-delay:{delay}s;">{leaf}</div>'
+positions = list(range(0, 100, 4))
+random.shuffle(positions)
+for i, left in enumerate(positions[:28]):
+    dur = random.uniform(16, 30)
+    delay = random.uniform(0, 12)
+    # force maple leaf emoji and gold color
+    leaves_html += f'<div class="leaf" style="left:{left}vw; animation-duration:{dur}s; animation-delay:{delay}s">🍁</div>'
 st.markdown(leaves_html, unsafe_allow_html=True)
 
-# ---------------- Стан таблиці ----------------
+# ---------- Session init ----------
 if "results" not in st.session_state:
-    st.session_state.results = pd.DataFrame(columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
+    st.session_state.results = pd.DataFrame(columns=["Місце", "Прізвище", "Клуб", "Вид", "Оцінка"])
 if "last_added" not in st.session_state:
     st.session_state.last_added = None
 
-st.markdown("<h1>Золота Осінь 2025 🍁</h1>", unsafe_allow_html=True)
+# ---------- Header ----------
+st.markdown("<h1>Золота Осінь 2025</h1>", unsafe_allow_html=True)
 
-# ---------------- Панель судді ----------------
-with st.expander("Панель судді", expanded=True):
-    c1, c2, c3, c4 = st.columns(4)
-    name = c1.text_input("Ім’я")
-    club = c2.text_input("Клуб")
-    event = c3.text_input("Вид")
-    score = c4.text_input("Оцінка (наприклад 27.800)")
+# ---------- Admin form (use st.form so submit is reliable) ----------
+with st.expander("Панель судді (додавання результатів)", expanded=True):
+    with st.form(key="add_form", clear_on_submit=False):
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            fname = st.text_input("Прізвище", key="f_pr")
+        with c2:
+            club = st.text_input("Клуб", key="f_club")
+        with c3:
+            event = st.text_input("Вид", key="f_event")
+        with c4:
+            score_input = st.text_input("Оцінка (напр., 27.750)", key="f_score")
+        submit = st.form_submit_button("➕ Додати учасницю")
+        clear = st.form_submit_button("🧹 Очистити таблицю", on_click=None)
 
-    colA, colB = st.columns([1,1])
-    add_btn = colA.button("➕ Додати учасницю")
-    clear_btn = colB.button("🧹 Очистити таблицю")
+    # Handle clear as separate button below for reliability
+    if st.button("🧹 Очистити таблицю (підтвердження)"):
+        st.session_state.results = pd.DataFrame(columns=["Місце", "Прізвище", "Клуб", "Вид", "Оцінка"])
+        st.session_state.last_added = None
+        st.experimental_rerun()
 
-# ---------------- Додавання учасниці ----------------
-if add_btn:
-    if name and club and event and score:
+# ---------- Process submission ----------
+if submit:
+    # validate inputs
+    if not fname or not club or not event or not score_input:
+        st.warning("Заповніть всі поля перед додаванням.")
+    else:
+        # accept comma or dot, preserve 3 decimals
         try:
-            score_val = float(score.replace(",", "."))
-            new_row = pd.DataFrame([[None, name, club, event, f"{score_val:.3f}"]],
-                                   columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
-            st.session_state.results = pd.concat([st.session_state.results, new_row], ignore_index=True)
+            val = float(score_input.replace(",", "."))
+        except Exception:
+            st.error("Неправильний формат оцінки. Використайте число, напр. 27.750")
+        else:
+            # append row (store score as float)
+            new_row = {"Місце": None, "Прізвище": fname.strip(), "Клуб": club.strip(), "Вид": event.strip(), "Оцінка": val}
+            st.session_state.results = pd.concat([st.session_state.results, pd.DataFrame([new_row])], ignore_index=True)
+            # sort and recalc places
             st.session_state.results["Оцінка"] = st.session_state.results["Оцінка"].astype(float)
-            st.session_state.results = st.session_state.results.sort_values(by="Оцінка", ascending=False).reset_index(drop=True)
-            st.session_state.results["Місце"] = st.session_state.results.index + 1
-            st.session_state.last_added = name
-        except ValueError:
-            st.error("⚠️ Перевір формат оцінки!")
+            st.session_state.results = st.session_state.results.sort_values(by="Оцінка", ascending=False, ignore_index=True)
+            st.session_state.results["Місце"] = range(1, len(st.session_state.results) + 1)
+            st.session_state.last_added = fname.strip()
+            # clear form fields
+            st.session_state["f_pr"] = ""
+            st.session_state["f_club"] = ""
+            st.session_state["f_event"] = ""
+            st.session_state["f_score"] = ""
+            st.experimental_rerun()
 
-if clear_btn:
-    st.session_state.results = pd.DataFrame(columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
-    st.session_state.last_added = None
+# ---------- Prepare display dataframe ----------
+df_display = st.session_state.results.copy()
+if not df_display.empty:
+    # ensure formatted display for score (but keep numeric for sorting)
+    df_display["Оцінка"] = df_display["Оцінка"].map(lambda x: f"{x:.3f}")
+    # mark leader with crown (HTML)
+    df_display.loc[0, "Прізвище"] = f"<span class='crown'>👑 {df_display.loc[0, 'Прізвище']}</span>"
 
-# ---------------- Відображення таблиці ----------------
-if not st.session_state.results.empty:
-    df = st.session_state.results.copy()
-
-    # додаємо корону першому місцю
-    df.iloc[0, 1] = f"<span class='crown'>👑 {df.iloc[0, 1]}</span>"
-
-    html = "<table><thead><tr>" + "".join([f"<th>{col}</th>" for col in df.columns]) + "</tr></thead><tbody>"
-    for _, row in df.iterrows():
-        cls = "highlight" if row["Ім’я"].replace("👑 ", "") == st.session_state.last_added else ""
-        html += f"<tr class='{cls}'>" + "".join([f"<td>{x}</td>" for x in row.values]) + "</tr>"
-    html += "</tbody></table>"
-    st.markdown(html, unsafe_allow_html=True)
+# ---------- Render HTML table with animation on last added ----------
+if df_display.empty:
+    # show empty table header only (no extra text)
+    empty_html = """
+    <div class="table-wrap">
+      <table class="results-table">
+        <thead><tr><th>Місце</th><th>Прізвище</th><th>Клуб</th><th>Вид</th><th>Оцінка</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    """
+    st.markdown(empty_html, unsafe_allow_html=True)
+else:
+    # build rows with class 'row-new' for last_added
+    rows = ""
+    for _, r in df_display.iterrows():
+        name_for_compare = str(r["Прізвище"]).replace("👑 ", "")
+        cls = "row-new" if (st.session_state.last_added and name_for_compare.lower() == st.session_state.last_added.lower()) else ""
+        rows += (
+            f"<tr class='{cls}'>"
+            f"<td>{int(r['Місце'])}</td>"
+            f"<td>{r['Прізвище']}</td>"
+            f"<td>{r['Клуб']}</td>"
+            f"<td>{r['Вид']}</td>"
+            f"<td>{r['Оцінка']}</td>"
+            f"</tr>"
+        )
+    table_html = (
+        "<div class='table-wrap'>"
+        "<table class='results-table'>"
+        "<thead><tr><th>Місце</th><th>Прізвище</th><th>Клуб</th><th>Вид</th><th>Оцінка</th></tr></thead>"
+        f"<tbody>{rows}</tbody>"
+        "</table></div>"
+    )
+    s
