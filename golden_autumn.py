@@ -3,159 +3,87 @@ import pandas as pd
 import random
 from streamlit_gsheets import GSheetsConnection
 
-# -------------------- Підключення до Google Sheets --------------------
-st.set_page_config(page_title="Золота Осінь 2025", layout="wide")
+# 🌙 Темна тема + базова конфігурація
+st.set_page_config(
+    page_title="Golden Autumn 🍂",
+    page_icon="🍁",
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
 
+# CSS для темного стилю + анімація листочків
+st.markdown("""
+    <style>
+    body {
+        background-color: #0e1117;
+        color: #e0e0e0;
+        font-family: 'Poppins', sans-serif;
+    }
+    .title {
+        text-align: center;
+        font-size: 2.2em;
+        color: #ffb347;
+        margin-bottom: 20px;
+        text-shadow: 0 0 10px #ffb34780;
+    }
+    .leaf {
+        position: fixed;
+        top: -50px;
+        font-size: 24px;
+        animation-name: fall;
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
+    }
+    @keyframes fall {
+        0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+        100% { transform: translateY(120vh) rotate(360deg); opacity: 0.2; }
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# 🍁 Анімація листочків
+def falling_leaves():
+    leaves = ["🍂", "🍁", "🍃"]
+    html = ""
+    for i in range(20):
+        leaf = random.choice(leaves)
+        left = random.randint(0, 100)
+        duration = random.uniform(6, 12)
+        delay = random.uniform(0, 5)
+        html += f'<div class="leaf" style="left: {left}%; animation-duration: {duration}s; animation-delay: {delay}s;">{leaf}</div>'
+    st.markdown(html, unsafe_allow_html=True)
+
+falling_leaves()
+
+# 🧾 Підключення до Google Sheets
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
-    existing_data = conn.read(worksheet="Sheet1")
-    df = pd.DataFrame(existing_data)
+    df = conn.read(worksheet="Учасниці", usecols=list(range(3)), ttl=5)
+    df = df.dropna(how="all")
 except Exception as e:
     st.error("❌ Помилка при з'єднанні з Google Sheets")
     st.stop()
 
-# -------------------- CSS стиль --------------------
-st.markdown("""
-<style>
-body {
-    background: linear-gradient(180deg, #0d0d0d, #1a1a1a);
-    color: #f6c453;
-    overflow-x: hidden;
-}
-h1 {
-    text-align: center;
-    color: #f6c453;
-    font-weight: bold;
-    text-shadow: 0 0 25px #f6c453;
-    margin-bottom: 30px;
-    animation: glow 2s ease-in-out infinite alternate;
-}
-@keyframes glow {
-    from { text-shadow: 0 0 15px #f6c453; }
-    to { text-shadow: 0 0 35px #ffd700; }
-}
-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: rgba(30,30,30,0.85);
-    color: #f6c453;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 0 20px rgba(246,196,83,0.2);
-}
-th, td {
-    padding: 10px;
-    text-align: center;
-    font-size: 18px;
-}
-th {
-    background-color: #333;
-    color: #f6c453;
-    border-bottom: 2px solid #f6c453;
-}
-tr.new-row {
-    animation: slideUp 0.8s ease-out;
-}
-@keyframes slideUp {
-    from { transform: translateY(60px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-.leaf {
-    position: fixed;
-    top: -10vh;
-    color: #f6c453;
-    opacity: 0.8;
-    animation: fall linear infinite;
-    z-index: -1;
-}
-@keyframes fall {
-    0% { transform: translateY(0) rotate(0deg); }
-    100% { transform: translateY(110vh) rotate(360deg); }
-}
-.crown {
-    animation: crownPulse 2.5s ease-in-out infinite;
-}
-@keyframes crownPulse {
-    0%, 100% { text-shadow: 0 0 10px #ffd700; }
-    50% { text-shadow: 0 0 25px #ffea00; }
-}
-button, .stButton>button {
-    background: linear-gradient(90deg, #f6c453, #b8860b);
-    color: #1a1a1a !important;
-    border: none;
-    border-radius: 8px;
-    font-weight: bold;
-    padding: 0.6rem 1.2rem;
-    cursor: pointer;
-}
-button:hover {
-    background: linear-gradient(90deg, #ffd700, #f6c453);
-}
-</style>
-""", unsafe_allow_html=True)
+# 🌟 Заголовок
+st.markdown('<div class="title">Golden Autumn 🍁</div>', unsafe_allow_html=True)
 
-# -------------------- Листочки --------------------
-leaves_html = ""
-for i in range(25):
-    left = random.randint(0, 100)
-    duration = random.uniform(15, 30)
-    delay = random.uniform(0, 15)
-    size = random.uniform(22, 38)
-    leaf = random.choice(["🍁", "🍂", "🍃"])
-    leaves_html += f'<div class="leaf" style="left:{left}vw; animation-duration:{duration}s; animation-delay:{delay}s; font-size:{size}px;">{leaf}</div>'
-st.markdown(leaves_html, unsafe_allow_html=True)
+# 📋 Форма для додавання учасниці
+with st.form("add_participant", clear_on_submit=True):
+    name = st.text_input("Ім’я та прізвище", placeholder="Введіть ім’я...")
+    age = st.number_input("Вік", min_value=5, max_value=100, step=1)
+    city = st.text_input("Місто", placeholder="Звідки учасниця?")
+    submitted = st.form_submit_button("Додати 🌟")
 
-# -------------------- Назва --------------------
-st.markdown("<h1>Золота Осінь 2025 🍂</h1>", unsafe_allow_html=True)
+    if submitted:
+        if name and city:
+            new_row = pd.DataFrame([[name, age, city]], columns=["Ім’я", "Вік", "Місто"])
+            updated_df = pd.concat([df, new_row], ignore_index=True)
+            conn.update(worksheet="Учасниці", data=updated_df)
+            st.success(f"✅ Учасницю **{name}** успішно додано!")
+            st.balloons()
+        else:
+            st.warning("⚠️ Заповніть усі поля!")
 
-# -------------------- Панель судді --------------------
-with st.expander("🔒 Панель судді", expanded=True):
-    col1, col2, col3, col4 = st.columns(4)
-    name = col1.text_input("Ім’я")
-    club = col2.text_input("Клуб")
-    category = col3.text_input("Вид")
-    score = col4.text_input("Оцінка (наприклад 27.750)")
-
-    col5, col6 = st.columns([1, 1])
-    add_btn = col5.button("➕ Додати учасницю", key="add")
-    clear_btn = col6.button("🧹 Очистити таблицю", key="clear")
-
-# -------------------- Додавання нової учасниці --------------------
-if add_btn:
-    if name and club and category and score:
-        try:
-            score_val = float(score.replace(",", "."))
-            new_row = pd.DataFrame([[None, name, club, category, score_val]],
-                                   columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
-
-            # 🟢 Об'єднуємо з існуючими даними
-            if not df.empty:
-                updated_df = pd.concat([df, new_row], ignore_index=True)
-            else:
-                updated_df = new_row
-
-            # 🟢 Сортуємо
-            updated_df["Оцінка"] = updated_df["Оцінка"].astype(float)
-            updated_df = updated_df.sort_values(by="Оцінка", ascending=False).reset_index(drop=True)
-            updated_df["Місце"] = updated_df.index + 1
-
-            # 🟢 Оновлюємо Google Sheets
-            conn.update(worksheet="Sheet1", data=updated_df)
-            st.success(f"✅ {name} успішно додана!")
-            st.rerun()
-
-        except ValueError:
-            st.error("❌ Неправильний формат оцінки! Використовуйте крапку або кому.")
-
-if clear_btn:
-    conn.update(worksheet="Sheet1", data=pd.DataFrame(columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"]))
-    st.success("🧹 Таблиця очищена!")
-    st.rerun()
-
-# -------------------- Відображення --------------------
-if not df.empty:
-    df = df.copy()
-    df = df.dropna(how="all")
-    if not df.empty:
-        df.iloc[0, 1] = f"<span class='crown'>👑 {df.iloc[0, 1]}</span>"
-        st.markdown(df.to_html(index=False, escape=False), unsafe_allow_html=True)
+# 🧡 Таблиця учасниць
+st.markdown("### Учасниці:")
+st.dataframe(df, use_container_width=True, hide_index=True)
