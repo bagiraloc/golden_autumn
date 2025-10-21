@@ -2,206 +2,193 @@
 import streamlit as st
 import pandas as pd
 import random
-import os
-import time
-from datetime import datetime
-import io
+import html
 
 # -------------------- Налаштування сторінки --------------------
 st.set_page_config(page_title="Золота Осінь 2025", layout="wide")
 
-# -------------------- Авто-перезавантаження через JS (5s) --------------------
-# Це оновлює сторінку кожні 5 секунд, щоб підвантажувати зміни в results.csv
-st.markdown(
-    """
-    <script>
-    // перезавантаження сторінки кожні 5 секунд
-    setTimeout(()=>{ window.location.reload(); }, 5000);
-    </script>
-    """,
-    unsafe_allow_html=True,
-)
-
-# -------------------- CSS стиль та анімації --------------------
-st.markdown(
-    """
+# -------------------- CSS стиль (темна тема) --------------------
+# Ми підставимо змінну font_size на основі кількості рядків, щоб "зменшувати" таблицю при великій кількості учасниць.
+def make_css(font_size_px=18):
+    return f"""
     <style>
-    :root {
-      --bg: #0b0b0b;
-      --panel: #121212;
-      --gold: #f6c453;
-      --accent: #b8860b;
-      --muted: #ddd6c9;
-    }
-    body, .stApp {
-      background: linear-gradient(180deg, #050505 0%, #131313 100%);
-      color: var(--gold);
-    }
-    h1.app-title {
-      text-align: center;
-      color: var(--gold);
-      font-weight: 800;
-      text-shadow: 0 0 25px rgba(246,196,83,0.2);
-      font-size: 44px;
-      margin-bottom: 0.5rem;
-    }
-    .subtitle {
-      text-align:center;
-      color: var(--muted);
-      margin-bottom: 1.2rem;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: rgba(20,20,20,0.8);
-      color: var(--gold);
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 6px 30px rgba(0,0,0,0.6);
-    }
-    th, td {
-      padding: 12px 14px;
-      text-align: center;
-      font-size: 18px;
-    }
-    th {
-      background: #1f1f1f;
-      color: var(--gold);
-      border-bottom: 2px solid rgba(246,196,83,0.12);
-    }
-    tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
-    .crown { font-weight: 800; text-shadow: 0 0 10px rgba(255,225,120,0.6); }
-    .leaf {
-      position: fixed;
-      top: -10vh;
-      color: var(--gold);
-      opacity: 0.95;
-      animation: fall linear infinite;
-      z-index: 0;
-      pointer-events: none;
-    }
-    @keyframes fall {
-      0% { transform: translateY(-10vh) rotate(0deg); }
-      100% { transform: translateY(110vh) rotate(360deg); }
-    }
-    .new-row {
-      animation: slideUp 0.8s ease-out;
-      background: linear-gradient(90deg, rgba(246,196,83,0.06), rgba(246,196,83,0.02));
-    }
-    @keyframes slideUp {
-      from { transform: translateY(30px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-    /* форма внизу */
-    .bottom-form {
-      position: sticky;
-      bottom: 12px;
-      z-index: 3;
-      padding-top: 10px;
-      background: linear-gradient(180deg, rgba(10,10,10,0.0), rgba(7,7,7,0.45));
-      margin-top: 20px;
-    }
-    /* Зменшувати шрифт таблиці при великій кількості рядків */
-    @media (max-height: 900px) {
-      th, td { font-size: 15px; padding: 8px 10px; }
-    }
+    :root {{ --accent: #f6c453; --bg:#0e0e0f; --card:#1a1a1a; --muted:#bfbfbf; }}
+    body {{
+        background: linear-gradient(180deg, #0d0d0d, #121212);
+        color: var(--accent);
+        font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }}
+    h1 {{
+        text-align: center;
+        color: var(--accent);
+        font-weight: 800;
+        text-shadow: 0 0 20px rgba(246,196,83,0.25);
+        margin-bottom: 12px;
+    }}
+    .subtitle {{
+        text-align: center;
+        color: #e8d8b0;
+        margin-bottom: 18px;
+    }}
+    .top-leaf {{ position: relative; width:100%; text-align:center; font-size:34px; margin-bottom: -12px; }}
+    .leaf {{
+        position: fixed;
+        top: -10vh;
+        color: var(--accent);
+        opacity: 0.95;
+        animation: fall linear infinite;
+        z-index: 0;
+        pointer-events: none;
+        transform-origin: center;
+    }}
+    @keyframes fall {{
+        0% {{ transform: translateY(-10vh) rotate(0deg); opacity: 1; }}
+        100% {{ transform: translateY(110vh) rotate(360deg); opacity: 0.9; }}
+    }}
+    .table-wrap {{
+        width: 98%;
+        margin: 0 auto 1.5rem auto;
+        z-index: 1;
+    }}
+    table.leaderboard {{
+        width: 100%;
+        border-collapse: collapse;
+        background: rgba(20,20,20,0.85);
+        color: var(--accent);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 6px 30px rgba(0,0,0,0.6);
+        font-size: {font_size_px}px;
+    }}
+    table.leaderboard th, table.leaderboard td {{
+        padding: 12px 10px;
+        text-align: center;
+    }}
+    table.leaderboard th {{
+        background: #222;
+        color: var(--accent);
+        border-bottom: 2px solid #b8860b;
+        font-weight: 700;
+    }}
+    tr.new-row {{
+        animation: slideUp 0.9s ease-out;
+    }}
+    @keyframes slideUp {{
+        from {{ transform: translateY(40px); opacity: 0; }}
+        to {{ transform: translateY(0); opacity: 1; }}
+    }}
+    .crown {{
+        animation: crownPulse 2.5s ease-in-out infinite;
+        padding: 0 6px;
+    }}
+    @keyframes crownPulse {{
+        0%,100% {{ text-shadow: 0 0 8px #ffd700; }}
+        50% {{ text-shadow: 0 0 20px #ffea00; }}
+    }}
+    /* input form styling */
+    .form-row {{
+        display:flex;
+        gap:10px;
+        justify-content:center;
+        align-items:center;
+        margin: 18px 0 30px 0;
+        flex-wrap:wrap;
+    }}
+    .stButton>button {{
+        background: linear-gradient(90deg, #f6c453, #b8860b);
+        color: #1a1a1a !important;
+        border: none;
+        border-radius: 8px;
+        font-weight: 700;
+        padding: 8px 14px;
+        cursor: pointer;
+    }}
+    /* small screens */
+    @media (max-width: 700px) {{
+        table.leaderboard td, table.leaderboard th {{ padding:8px; }}
+    }}
     </style>
-    """,
-    unsafe_allow_html=True,
-)
+    """
 
-# -------------------- Листочки (тільки кленові) --------------------
-leaves_html = ""
-for i in range(18):
-    left = random.randint(0, 100)
-    duration = random.uniform(12, 26)
-    delay = random.uniform(0, 12)
-    size = random.uniform(20, 44)
-    leaves_html += f'<div class="leaf" style="left:{left}vw; animation-duration:{duration}s; animation-delay:{delay}s; font-size:{size}px;">🍁</div>'
-st.markdown(leaves_html, unsafe_allow_html=True)
+# -------------------- Листочки (кленовые только) --------------------
+def render_leaves(n=16):
+    leaves_html = ""
+    for i in range(n):
+        left = random.randint(0, 95)
+        duration = random.uniform(12, 26)
+        delay = random.uniform(0, 10)
+        size = random.uniform(18, 36)
+        leaf = "🍁"  # only maple
+        leaves_html += f'<div class="leaf" style="left:{left}vw; animation-duration:{duration}s; animation-delay:{delay}s; font-size:{size}px;">{leaf}</div>'
+    return leaves_html
 
-# -------------------- Файл для збереження --------------------
-CSV_FILE = "results.csv"
-DEFAULT_COLS = ["Місце", "Ім’я", "Клуб", "Вид", "Оцінка", "Додано"]
+# -------------------- Инициализация данных в session_state --------------------
+if "results" not in st.session_state:
+    st.session_state.results = pd.DataFrame(columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
+if "last_added" not in st.session_state:
+    st.session_state.last_added = None
 
-def load_data():
-    if os.path.exists(CSV_FILE):
-        try:
-            df = pd.read_csv(CSV_FILE)
-            # переконаємося, що всі колонки є
-            for c in DEFAULT_COLS:
-                if c not in df.columns:
-                    df[c] = ""
-            return df[DEFAULT_COLS]
-        except Exception as e:
-            st.error("Не вдалося прочитати файл results.csv: " + str(e))
-            return pd.DataFrame(columns=DEFAULT_COLS)
-    else:
-        # пустий DataFrame із колонками
-        return pd.DataFrame(columns=DEFAULT_COLS)
+# -------------------- Логика автообновлення через JS (5 секунд) --------------------
+# Вставляємо невидимий HTML, який перезавантажує сторінку кожні 5 секунд
+# Якщо це заважає введенню — можна тимчасово прибрати рядок або зменшити інтервал.
+auto_refresh_js = """
+<script>
+const interval = 5000;
+setInterval(() => {
+    // перезавантажуємо лише якщо фокус не в полі вводу
+    if (!document.activeElement || document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        window.location.reload();
+    }
+}, interval);
+</script>
+"""
+st.components.v1.html(auto_refresh_js, height=0)
 
-def save_data(df):
-    df.to_csv(CSV_FILE, index=False)
+# -------------------- Рендер сторінки --------------------
+# обчислюємо font-size залежно від кількості рядків (щоб "вміщувати" таблицю)
+row_count = len(st.session_state.results)
+base_font = 18
+if row_count <= 6:
+    font_size = base_font
+elif row_count <= 12:
+    font_size = max(12, base_font - 2)
+else:
+    font_size = max(10, base_font - min(8, (row_count - 6)//2))
 
-# -------------------- Заголовок --------------------
-st.markdown('<h1 class="app-title">👑 Золота Осінь 2025 🍁</h1>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Турнірна таблиця — вводьте дані внизу. Нові учасниці анімовано підтягуються.</div>', unsafe_allow_html=True)
+st.markdown(make_css(font_size), unsafe_allow_html=True)
+st.markdown(render_leaves(14), unsafe_allow_html=True)
 
-# -------------------- Завантажити дані --------------------
-df = load_data()
+st.markdown("<h1>👑 Золота Осінь 2025 🍁</h1>", unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Турнірна таблиця — вводьте дані знизу. Нові учасниці анімовано підтягуються.</div>', unsafe_allow_html=True)
 
-# -------------------- Обробка додавання нового рядка через форму внизу --------------------
-with st.form("add_form", clear_on_submit=True):
-    st.markdown("<div style='display:flex; gap:12px; align-items:center;'>", unsafe_allow_html=True)
-    colA, colB, colC, colD, colE = st.columns([1.2, 2.5, 2.5, 1.8, 1.2])
-    with colA:
-        name = st.text_input("Ім'я", "")
-    with colB:
-        club = st.text_input("Клуб", "")
-    with colC:
-        category = st.text_input("Вид", "")
-    with colD:
-        score = st.text_input("Оцінка (напр. 27.750)", "")
-    with colE:
-        add_btn = st.form_submit_button("➕ Додати")
-    st.markdown("</div>", unsafe_allow_html=True)
+# -------------------- Форма введення внизу (ми покажемо її тут, але вона в стилі "внизу") --------------------
+with st.form(key="add_form", clear_on_submit=True):
+    c1, c2, c3, c4, c5 = st.columns([3,3,2,2,1])
+    name = c1.text_input("Ім'я")
+    club = c2.text_input("Клуб")
+    category = c3.text_input("Вид")
+    score = c4.text_input("Оцінка (наприклад 27.750)")
+    add_btn = c5.form_submit_button("➕ Додати")
 
-# При додаванні — валідація і запис у CSV
+# -------------------- Додавання учасниці в таблицю --------------------
 if add_btn:
-    if not (name and club and category and score):
-        st.warning("Заповніть всі поля: Ім'я, Клуб, Вид, Оцінка.")
+    if not name.strip():
+        st.error("Введіть ім'я учасниці.")
     else:
         try:
-            score_val = float(str(score).replace(",", "."))
-            new_row = {
-                "Місце": None,
-                "Ім’я": name.strip(),
-                "Клуб": club.strip(),
-                "Вид": category.strip(),
-                "Оцінка": score_val,
-                "Додано": datetime.utcnow().isoformat()
-            }
-            df = load_data()  # ще раз підвантажити на випадок паралельного запису
-            df = df.append(new_row, ignore_index=True)
-            # сортуємо, проставляємо місця
-            df["Оцінка"] = pd.to_numeric(df["Оцінка"], errors="coerce").fillna(0)
-            df = df.sort_values(by="Оцінка", ascending=False).reset_index(drop=True)
+            # якщо порожній рядок для оцінки — ставимо NaN
+            score_val = None
+            if score and score.strip():
+                score_val = float(score.replace(",", "."))
+            new_row = {"Місце": None, "Ім’я": name.strip(), "Клуб": club.strip(), "Вид": category.strip(), "Оцінка": score_val}
+            # додаємо через concat (append deprecated у нових pandas)
+            df = st.session_state.results.copy()
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+            # сортуємо (NaN внизу)
+            df["Оцінка"] = pd.to_numeric(df["Оцінка"], errors="coerce")
+            df = df.sort_values(by="Оцінка", ascending=False, na_position="last").reset_index(drop=True)
             df["Місце"] = df.index + 1
-            save_data(df)
-            # позначимо останнього доданого в сесії для анімації
-            st.session_state["last_added"] = name.strip()
-            st.experimental_rerun()
-        except ValueError:
-            st.error("❌ Неправильний формат оцінки. Використовуйте число, наприклад 27.750")
-
-# -------------------- Відобразити таблицю (з анімацією для останнього) --------------------
-if not df.empty:
-    display_df = df.copy()
-    # перетворюємо оцінки для відображення
-    display_df["Оцінка"] = display_df["Оцінка"].map(lambda v: ("{:.3f}".format(v)) if pd.notna(v) else "")
-    # додамо корону першому
-    if len(display_df) >= 1:
-        display_df.iloc[0, display_df.columns.get_loc("Ім’я")] = f"👑 <span class='crown'>{display_df.iloc[0]['Ім’я']}</span>"
-
-    # генеруємо HTML-таблицю вручну, щоб додати клас new-row для останнього доданого (за ім'ям)
-    l
+            st.session_state.results = df
+            st.session_state.last_added = name.strip()
+            # Щоб побачити зміни негайно (не завжди потрібно) — rerun:
+            st.exp
