@@ -9,7 +9,7 @@ st.set_page_config(page_title="Золота Осінь 2025", layout="wide")
 st.markdown("""
 <style>
 body {
-    background: linear-gradient(180deg, #1a1a1a, #0d0d0d);
+    background: linear-gradient(180deg, #0d0d0d, #1a1a1a);
     color: #f6c453;
     overflow-x: hidden;
 }
@@ -17,16 +17,22 @@ h1 {
     text-align: center;
     color: #f6c453;
     font-weight: bold;
-    text-shadow: 0 0 20px #f6c453;
+    text-shadow: 0 0 25px #f6c453;
     margin-bottom: 30px;
+    animation: glow 2s ease-in-out infinite alternate;
+}
+@keyframes glow {
+    from { text-shadow: 0 0 15px #f6c453; }
+    to { text-shadow: 0 0 35px #ffd700; }
 }
 table {
     width: 100%;
     border-collapse: collapse;
-    background: rgba(40,40,40,0.8);
+    background: rgba(30,30,30,0.85);
     color: #f6c453;
     border-radius: 12px;
     overflow: hidden;
+    box-shadow: 0 0 20px rgba(246,196,83,0.2);
 }
 th, td {
     padding: 10px;
@@ -38,27 +44,12 @@ th {
     color: #f6c453;
     border-bottom: 2px solid #f6c453;
 }
-tr {
-    transition: all 0.7s ease-in-out;
-}
 tr.new-row {
-    animation: fadeSlideIn 1s ease-out;
+    animation: slideUp 0.8s ease-out;
 }
-@keyframes fadeSlideIn {
-    from { transform: translateY(40px); opacity: 0; }
+@keyframes slideUp {
+    from { transform: translateY(60px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
-}
-button, .stButton>button {
-    background: linear-gradient(90deg, #f6c453, #b8860b);
-    color: #1a1a1a !important;
-    border: none;
-    border-radius: 8px;
-    font-weight: bold;
-    padding: 0.6rem 1.2rem;
-    cursor: pointer;
-}
-button:hover {
-    background: linear-gradient(90deg, #ffd700, #f6c453);
 }
 .leaf {
     position: fixed;
@@ -72,6 +63,25 @@ button:hover {
     0% { transform: translateY(0) rotate(0deg); }
     100% { transform: translateY(110vh) rotate(360deg); }
 }
+.crown {
+    animation: crownPulse 2.5s ease-in-out infinite;
+}
+@keyframes crownPulse {
+    0%, 100% { text-shadow: 0 0 10px #ffd700; }
+    50% { text-shadow: 0 0 25px #ffea00; }
+}
+button, .stButton>button {
+    background: linear-gradient(90deg, #f6c453, #b8860b);
+    color: #1a1a1a !important;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    padding: 0.6rem 1.2rem;
+    cursor: pointer;
+}
+button:hover {
+    background: linear-gradient(90deg, #ffd700, #f6c453);
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -79,9 +89,9 @@ button:hover {
 leaves_html = ""
 for i in range(25):
     left = random.randint(0, 100)
-    duration = random.uniform(10, 25)
+    duration = random.uniform(15, 30)
     delay = random.uniform(0, 15)
-    size = random.uniform(20, 40)
+    size = random.uniform(22, 38)
     leaf = random.choice(["🍁", "🍂", "🍃"])
     leaves_html += f'<div class="leaf" style="left:{left}vw; animation-duration:{duration}s; animation-delay:{delay}s; font-size:{size}px;">{leaf}</div>'
 st.markdown(leaves_html, unsafe_allow_html=True)
@@ -89,36 +99,52 @@ st.markdown(leaves_html, unsafe_allow_html=True)
 # -------------------- Таблиця --------------------
 if "results" not in st.session_state:
     st.session_state.results = pd.DataFrame(columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
+if "last_added" not in st.session_state:
+    st.session_state.last_added = None
 
 st.markdown("<h1>Золота Осінь 2025 🍂</h1>", unsafe_allow_html=True)
 
-if not st.session_state.results.empty:
-    sorted_df = st.session_state.results.sort_values(by="Оцінка", ascending=False).reset_index(drop=True)
-    sorted_df["Місце"] = sorted_df.index + 1
-    # Коронка переможниці
-    if not sorted_df.empty:
-        sorted_df.iloc[0, 1] = f"👑 {sorted_df.iloc[0, 1]}"
-    st.markdown(sorted_df.to_html(index=False, classes="results-table"), unsafe_allow_html=True)
-else:
-    st.info("Поки що немає учасниць. Додайте першу нижче 👇")
-
-# -------------------- Форма для введення --------------------
-with st.expander("🔒 Панель судді", expanded=False):
+# -------------------- Панель судді --------------------
+with st.expander("🔒 Панель судді", expanded=True):
     col1, col2, col3, col4 = st.columns(4)
     name = col1.text_input("Ім’я")
     club = col2.text_input("Клуб")
     category = col3.text_input("Вид")
-    score = col4.number_input("Оцінка", min_value=0.0, max_value=60.0, step=0.05)
+    score = col4.text_input("Оцінка (наприклад 27.750)")
 
-    add_btn = st.button("➕ Додати учасницю")
-    clear_btn = st.button("🧹 Очистити таблицю")
+    col5, col6 = st.columns([1, 1])
+    add_btn = col5.button("➕ Додати учасницю", key="add")
+    clear_btn = col6.button("🧹 Очистити таблицю", key="clear")
 
-# -------------------- Обробка --------------------
-if add_btn and name and club and category:
-    new_row = pd.DataFrame([[None, name, club, category, score]], columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
-    st.session_state.results = pd.concat([st.session_state.results, new_row], ignore_index=True)
-    st.experimental_rerun()
+# -------------------- Логіка --------------------
+if add_btn:
+    if name and club and category and score:
+        try:
+            score_val = float(score.replace(",", "."))
+            new_row = pd.DataFrame([[None, name, club, category, f"{score_val:.3f}"]],
+                                   columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
+            st.session_state.results = pd.concat([st.session_state.results, new_row], ignore_index=True)
+            st.session_state.results["Оцінка"] = st.session_state.results["Оцінка"].astype(float)
+            st.session_state.results = st.session_state.results.sort_values(by="Оцінка", ascending=False).reset_index(drop=True)
+            st.session_state.results["Місце"] = st.session_state.results.index + 1
+            st.session_state.last_added = name
+            st.rerun()
+        except ValueError:
+            st.error("❌ Неправильний формат оцінки! Використовуйте крапку або кому.")
 
 if clear_btn:
     st.session_state.results = pd.DataFrame(columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
-    st.experimental_rerun()
+    st.session_state.last_added = None
+    st.rerun()
+
+# -------------------- Відображення --------------------
+if not st.session_state.results.empty:
+    df = st.session_state.results.copy()
+    df.iloc[0, 1] = f"<span class='crown'>👑 {df.iloc[0, 1]}</span>"
+    table_html = df.to_html(index=False, escape=False)
+    if st.session_state.last_added:
+        # Анімація для останньої доданої учасниці
+        name = st.session_state.last_added
+        table_html = table_html.replace(name, f"<tr class='new-row'><td colspan='5'></td></tr>{name}")
+        st.session_state.last_added = None
+    st.markdown(table_html, unsafe_allow_html=True)
