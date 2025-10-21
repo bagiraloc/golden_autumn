@@ -43,22 +43,10 @@ table {
     background: rgba(30,30,30,0.9);
     border-radius: 14px;
     box-shadow: 0 0 20px rgba(246,196,83,0.3);
-    transition: all 0.3s ease;
+    transition: all 0.5s ease;
 }
-
-/* Шрифт таблицы будет автоматически уменьшаться в зависимости от количества строк */
-.small-table {
-    font-size: clamp(8px, 0.6vw, 14px);
-}
-.medium-table {
-    font-size: clamp(10px, 0.8vw, 16px);
-}
-.large-table {
-    font-size: clamp(12px, 1vw, 18px);
-}
-
 th, td {
-    padding: 4px;
+    padding: 6px;
     text-align: center;
     color: #f6c453;
     word-break: break-word;
@@ -101,7 +89,7 @@ for i in range(25):
     left = random.randint(0, 100)
     duration = random.uniform(15, 30)
     delay = random.uniform(0, 25)
-    leaf = random.choice(["🍁", "🍁", "🍂", "🍁"])
+    leaf = random.choice(["🍁", "🍂"])
     leaves_html += f'<div class="leaf" style="left:{left}vw; animation-duration:{duration}s; animation-delay:{delay}s;">{leaf}</div>'
 st.markdown(leaves_html, unsafe_allow_html=True)
 
@@ -113,17 +101,39 @@ if "last_added" not in st.session_state:
 
 st.markdown("<h1>Золота Осінь 2025 🍁</h1>", unsafe_allow_html=True)
 
-# ---------------- Панель судьи ----------------
-with st.expander("Панель судді", expanded=True):
-    c1, c2, c3, c4 = st.columns(4)
-    name = c1.text_input("Ім’я")
-    club = c2.text_input("Клуб")
-    event = c3.text_input("Вид")
-    score = c4.text_input("Оцінка (наприклад 27.700)")
+# ---------------- Отображение таблицы ----------------
+if not st.session_state.results.empty:
+    df = st.session_state.results.copy()
+    df["Оцінка"] = df["Оцінка"].map(lambda x: f"{x:.3f}")
+    df.iloc[0, 1] = f"<span class='crown'>👑 {df.iloc[0, 1]}</span>"
 
-    colA, colB = st.columns([1, 1])
-    add_btn = colA.button("➕ Додати учасницю")
-    clear_btn = colB.button("🧹 Очистити таблицю")
+    # Автоматическое уменьшение шрифта в зависимости от числа участниц
+    num_rows = len(df)
+    base_font = max(9, 24 - int(num_rows / 3))  # чем больше участниц — тем меньше шрифт
+    table_style = f"font-size: {base_font}px;"
+
+    html = f"<table style='{table_style}'><thead><tr>" + "".join([f"<th>{col}</th>" for col in df.columns]) + "</tr></thead><tbody>"
+    for _, row in df.iterrows():
+        cls = "highlight" if row["Ім’я"].replace('👑 ', '') == st.session_state.last_added else ""
+        html += f"<tr class='{cls}'>" + "".join([f"<td>{x}</td>" for x in row.values]) + "</tr>"
+    html += "</tbody></table>"
+
+    st.markdown(html, unsafe_allow_html=True)
+else:
+    st.info("Поки що немає учасниць.")
+
+# ---------------- Панель судьи ----------------
+st.markdown("---")
+st.subheader("⚖️ Панель судді")
+c1, c2, c3, c4 = st.columns(4)
+name = c1.text_input("Ім’я")
+club = c2.text_input("Клуб")
+event = c3.text_input("Вид")
+score = c4.text_input("Оцінка (наприклад 27.700)")
+
+colA, colB = st.columns([1,1])
+add_btn = colA.button("➕ Додати учасницю")
+clear_btn = colB.button("🧹 Очистити таблицю")
 
 # ---------------- Добавление участницы ----------------
 if add_btn:
@@ -143,30 +153,3 @@ if add_btn:
 if clear_btn:
     st.session_state.results = pd.DataFrame(columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
     st.session_state.last_added = None
-
-# ---------------- Отображение таблицы ----------------
-if not st.session_state.results.empty:
-    df = st.session_state.results.copy()
-    df["Оцінка"] = df["Оцінка"].map(lambda x: f"{x:.3f}")
-
-    # Корона первому месту
-    df.iloc[0, 1] = f"<span class='crown'>👑 {df.iloc[0, 1]}</span>"
-
-    # Выбираем размер таблицы в зависимости от числа участниц
-    n = len(df)
-    if n <= 15:
-        table_class = "large-table"
-    elif n <= 35:
-        table_class = "medium-table"
-    else:
-        table_class = "small-table"
-
-    html = f"<table class='{table_class}'><thead><tr>" + "".join([f"<th>{col}</th>" for col in df.columns]) + "</tr></thead><tbody>"
-    for _, row in df.iterrows():
-        cls = "highlight" if row["Ім’я"].replace('👑 ', '') == st.session_state.last_added else ""
-        html += f"<tr class='{cls}'>" + "".join([f"<td>{x}</td>" for x in row.values]) + "</tr>"
-    html += "</tbody></table>"
-
-    st.markdown(html, unsafe_allow_html=True)
-else:
-    st.info("Поки що немає учасниць.")
