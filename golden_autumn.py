@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 import random
 
-# ---------------- Налаштування сторінки ----------------
+# ---------------- Настройки страницы ----------------
 st.set_page_config(page_title="Золота Осінь 2025", layout="wide")
 
-# ---------------- Темна стилізація ----------------
+# ---------------- Темная стилизация ----------------
 st.markdown("""
 <style>
 body {
@@ -43,12 +43,13 @@ table {
     background: rgba(30,30,30,0.9);
     border-radius: 14px;
     box-shadow: 0 0 20px rgba(246,196,83,0.3);
+    font-size: clamp(10px, 1.1vw, 18px);
 }
 th, td {
-    padding: 10px;
+    padding: 6px;
     text-align: center;
-    font-size: 18px;
     color: #f6c453;
+    word-break: break-word;
 }
 th {
     background-color: #1e1e1e;
@@ -79,6 +80,11 @@ tr.highlight {
 .stButton>button:hover {
     background: linear-gradient(90deg, #ffd700, #f6c453);
 }
+.scroll-container {
+    max-height: 80vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -92,7 +98,7 @@ for i in range(25):
     leaves_html += f'<div class="leaf" style="left:{left}vw; animation-duration:{duration}s; animation-delay:{delay}s;">{leaf}</div>'
 st.markdown(leaves_html, unsafe_allow_html=True)
 
-# ---------------- Стан таблиці ----------------
+# ---------------- Состояние таблицы ----------------
 if "results" not in st.session_state:
     st.session_state.results = pd.DataFrame(columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
 if "last_added" not in st.session_state:
@@ -100,24 +106,24 @@ if "last_added" not in st.session_state:
 
 st.markdown("<h1>Золота Осінь 2025 🍁</h1>", unsafe_allow_html=True)
 
-# ---------------- Панель судді ----------------
+# ---------------- Панель судьи ----------------
 with st.expander("Панель судді", expanded=True):
     c1, c2, c3, c4 = st.columns(4)
     name = c1.text_input("Ім’я")
     club = c2.text_input("Клуб")
     event = c3.text_input("Вид")
-    score = c4.text_input("Оцінка (наприклад 27.800)")
+    score = c4.text_input("Оцінка (наприклад 27.700)")
 
     colA, colB = st.columns([1,1])
     add_btn = colA.button("➕ Додати учасницю")
     clear_btn = colB.button("🧹 Очистити таблицю")
 
-# ---------------- Додавання учасниці ----------------
+# ---------------- Добавление участницы ----------------
 if add_btn:
     if name and club and event and score:
         try:
             score_val = float(score.replace(",", "."))
-            new_row = pd.DataFrame([[None, name, club, event, f"{score_val:.3f}"]],
+            new_row = pd.DataFrame([[None, name, club, event, score_val]],
                                    columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
             st.session_state.results = pd.concat([st.session_state.results, new_row], ignore_index=True)
             st.session_state.results["Оцінка"] = st.session_state.results["Оцінка"].astype(float)
@@ -131,16 +137,22 @@ if clear_btn:
     st.session_state.results = pd.DataFrame(columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
     st.session_state.last_added = None
 
-# ---------------- Відображення таблиці ----------------
+# ---------------- Отображение таблицы ----------------
 if not st.session_state.results.empty:
     df = st.session_state.results.copy()
 
-    # додаємо корону першому місцю
+    # Форматируем оценки с тысячными
+    df["Оцінка"] = df["Оцінка"].map(lambda x: f"{x:.3f}")
+
+    # Добавляем корону первому месту
     df.iloc[0, 1] = f"<span class='crown'>👑 {df.iloc[0, 1]}</span>"
 
-    html = "<table><thead><tr>" + "".join([f"<th>{col}</th>" for col in df.columns]) + "</tr></thead><tbody>"
+    html = "<div class='scroll-container'><table><thead><tr>" + "".join([f"<th>{col}</th>" for col in df.columns]) + "</tr></thead><tbody>"
     for _, row in df.iterrows():
-        cls = "highlight" if row["Ім’я"].replace("👑 ", "") == st.session_state.last_added else ""
+        cls = "highlight" if row["Ім’я"].replace('👑 ', '') == st.session_state.last_added else ""
         html += f"<tr class='{cls}'>" + "".join([f"<td>{x}</td>" for x in row.values]) + "</tr>"
-    html += "</tbody></table>"
+    html += "</tbody></table></div>"
+
     st.markdown(html, unsafe_allow_html=True)
+else:
+    st.info("Поки що немає учасниць.")
