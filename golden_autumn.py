@@ -131,29 +131,37 @@ st_autorefresh.text("⏳ Оновлення даних кожні 5 секунд
 placeholder = st.empty()
 
 while True:
-    df = load_data()
-    rows_html = ""
-    for i, row in df.iterrows():
-        place = int(row["Місце"])
-        name = row["Ім’я"] or ""
-        club = row["Клуб"] or ""
-        vid = row["Вид"] or ""
-        score = row["Оцінка"]
+    # ------------------ Автоматичне оновлення ------------------
+from streamlit_autorefresh import st_autorefresh
 
-        if place == 1:
-            name_html = f"<span class='crown'>👑 {name}</span>"
-        else:
-            name_html = name
+# Автоматичне оновлення кожні 10 секунд
+st_autorefresh(interval=10 * 1000, key="data_refresh")
 
-        rows_html += f"<tr><td>{place}</td><td>{name_html}</td><td>{club}</td><td>{vid}</td><td>{score:.3f}</td></tr>"
+# ------------------ Завантаження даних ------------------
+df = load_data()
 
-    html = f"""
-    <div class='results-wrap'>
-      <table class='results'>
-        <thead><tr><th>Місце</th><th>Ім’я</th><th>Клуб</th><th>Вид</th><th>Оцінка</th></tr></thead>
-        <tbody>{rows_html}</tbody>
-      </table>
-    </div>
-    """
-    placeholder.markdown(html, unsafe_allow_html=True)
-    time.sleep(5)  # оновлення кожні 5 секунд
+# ------------------ Відображення таблиці ------------------
+rows_html = ""
+for i, row in df.iterrows():
+    place = int(row["Місце"])
+    name = row["Ім’я"] or ""
+    club = row["Клуб"] or ""
+    vid = row["Вид"] or ""
+    score = row["Оцінка"]
+
+    if place == 1:
+        name_html = f"<span class='crown'>👑 {name}</span>"
+    else:
+        name_html = name
+
+    rows_html += f"<tr><td>{place}</td><td>{name_html}</td><td>{club}</td><td>{vid}</td><td>{score:.3f}</td></tr>"
+
+html = f"""
+<div class='results-wrap'>
+  <table class='results'>
+    <thead><tr><th>Місце</th><th>Ім’я</th><th>Клуб</th><th>Вид</th><th>Оцінка</th></tr></thead>
+    <tbody>{rows_html}</tbody>
+  </table>
+</div>
+"""
+st.markdown(html, unsafe_allow_html=True)
