@@ -1,87 +1,124 @@
 import streamlit as st
 import pandas as pd
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+import json
 import time
-import random
+from oauth2client.service_account import ServiceAccountCredentials
+from google.auth.exceptions import DefaultCredentialsError
+from streamlit_extras.stylable_container import stylable_container
 
-# --- GOOGLE SHEETS НАСТРОЙКА ---
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1S5mf3gVU-FHgOJ_kpfTn02ZzYeXMw0VTfGNX-RL6KMY/edit?gid=0"
+# --- Налаштування сторінки ---
+st.set_page_config(page_title="Золота Осінь 2025", layout="wide")
+
+# --- Заголовок ---
+st.markdown(
+    "<h1 style='text-align: center; color: #d4af37;'>👑 Золота Осінь 2025 🍂</h1>",
+    unsafe_allow_html=True,
+)
+
+# --- Підключення до Google Sheets ---
+try:
+    sa_json = json.loads(st.secrets["gsheets_service_account"])
+except Exception as e:
+    st.error("❌ Не знайдено або невірно вказано 'gsheets_service_account' у Streamlit Secrets.")
+    st.stop()
 
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-CREDS = ServiceAccountCredentials.from_json_keyfile_name("streamlit-gsheets.json", SCOPE)
-CLIENT = gspread.authorize(CREDS)
-SHEET = CLIENT.open_by_url(SPREADSHEET_URL).sheet1
+creds = ServiceAccountCredentials.from_json_keyfile_dict(sa_json, SCOPE)
+gc = gspread.authorize(creds)
 
-# --- ФУНКЦИИ ---
+# --- ID таблиці (твоя таблиця) ---
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1S5mf3gVU-FHgOJ_kpfTn02ZzYeXMw0VTfGNX-RL6KMY/edit?gid=0"
+SHEET_ID = SHEET_URL.split("/d/")[1].split("/")[0]
+sheet = gc.open_by_key(SHEET_ID).sheet1
+
+# --- Функція для зчитування даних ---
 def load_data():
-    data = SHEET.get_all_records()
-    return pd.DataFrame(data)
+    data = sheet.get_all_records()
+    if not data:
+        return pd.DataFrame(columns=["Місце", "Ім'я", "Клуб", "Вид", "Оцінка"])
+    df = pd.DataFrame(data)
+    df = df.sort_values(by=["Місце"], ascending=True)
+    return df
 
-def add_participant(misce, name, club, vid, ocinka):
-    SHEET.append_row([misce, name, club, vid, ocinka])
+# --- Функція для запису нових даних ---
+def save_data(df):
+    sheet.clear()
+    sheet.update([df.columns.values.tolist()] + df.values.tolist())
 
-# --- НАСТРОЙКА СТРАНИЦЫ ---
-st.set_page_config(page_title="Золота Осінь 2025", page_icon="👑", layout="wide")
+# --- Завантаження даних ---
+df = load_data()
 
-st.markdown("""
-    <style>
-    body { background-color: #0E1117; color: white; font-family: "Arial"; }
-    .title { text-align: center; font-size: 40px; font-weight: bold; color: #FFD700; }
-    .autumn { text-align: center; font-size: 30px; color: #FF7F50; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #FFD700; padding: 10px; text-align: center; }
-    th { background-color: #2B2B2B; color: #FFD700; }
-    tr:nth-child(even) { background-color: #1E1E1E; }
-    tr:hover { background-color: #333333; }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- ЗАГОЛОВОК ---
-st.markdown('<div class="title">👑 Золота Осінь 2025 🍁</div>', unsafe_allow_html=True)
-
-# --- АНІМАЦІЯ ЛИСТОЧКІВ ---
-leaves = ["🍂", "🍁", "🍃"]
-animated_leaves = "".join(random.choices(leaves, k=20))
-st.markdown(f'<div class="autumn">{animated_leaves}</div>', unsafe_allow_html=True)
-
-# --- ОТОБРАЖЕНИЕ ТАБЛИЦЫ ---
-placeholder = st.empty()
-
-def show_table():
-    df = load_data()
-    if df.empty:
-        st.warning("Поки що немає учасниць 🌸")
-    else:
-        df = df.sort_values(by=["Місце"]).reset_index(drop=True)
-        st.markdown(df.to_html(index=False, escape=False), unsafe_allow_html=True)
-
-while True:
-    with placeholder.container():
-        show_table()
-    time.sleep(5)
-    placeholder.empty()
-
-# --- ФОРМА ДЛЯ ДОДАВАННЯ ---
+# --- Таблиця з анімацією ---
 st.markdown("---")
-st.subheader("➕ Додати учасницю:")
+st.markdown("### 🏆 Поточні результати:")
 
-with st.form("add_form", clear_on_submit=True):
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        misce = st.text_input("Місце")
-    with col2:
-        name = st.text_input("Ім’я")
-    with col3:
-        club = st.text_input("Клуб")
-    with col4:
-        vid = st.text_input("Вид")
-    with col5:
-        ocinka = st.text_input("Оцінка")
+if not df.empty:
+    st.dataframe(
+        df.style.set_properties(
+            **{
+                "text-align": "center",
+                "border": "1px solid #d4af37",
+                "background-color": "#1E1E1E",
+                "color": "#FFD700",
+            }
+        ),
+        use_container_width=True,
+        hide_index=True,
+    )
+else:
+    st.info("Поки що немає учасниць 😌")
 
-    submitted = st.form_submit_button("💫 Додати")
+# --- Форма додавання ---
+st.markdown("---")
+st.markdown("### ➕ Додати нову учасницю:")
 
-    if submitted and misce and name and club and vid and ocinka:
-        add_participant(misce, name, club, vid, ocinka)
-        st.success(f"✅ Учасницю {name} додано!")
-        st.balloons()
+with stylable_container(
+    key="add_form",
+    css_styles="""
+        border: 2px solid #FFD700;
+        padding: 1rem;
+        border-radius: 1rem;
+        background-color: #222;
+    """,
+):
+    with st.form("add_competitor"):
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1:
+            place = st.number_input("Місце", min_value=1, step=1)
+        with col2:
+            name = st.text_input("Ім'я")
+        with col3:
+            club = st.text_input("Клуб")
+        with col4:
+            apparatus = st.text_input("Вид")
+        with col5:
+            score = st.number_input("Оцінка", min_value=0.0, step=0.01)
+
+        submitted = st.form_submit_button("💾 Зберегти")
+
+        if submitted:
+            if name.strip() == "":
+                st.warning("Введіть ім’я учасниці!")
+            else:
+                new_row = pd.DataFrame(
+                    [[int(place), name, club, apparatus, float(score)]],
+                    columns=["Місце", "Ім'я", "Клуб", "Вид", "Оцінка"],
+                )
+                df = pd.concat([df, new_row], ignore_index=True)
+                df = df.sort_values(by=["Місце"])
+                save_data(df)
+                st.success(f"✅ Учасницю **{name}** додано!")
+                st.experimental_rerun()
+
+# --- Автоматичне оновлення ---
+st.markdown(
+    """
+    <script>
+    setTimeout(function(){
+        window.location.reload(1);
+    }, 10000);
+    </script>
+    """,
+    unsafe_allow_html=True,
+)
