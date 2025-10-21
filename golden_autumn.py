@@ -43,7 +43,7 @@ table {
     background: rgba(30,30,30,0.9);
     border-radius: 14px;
     box-shadow: 0 0 20px rgba(246,196,83,0.3);
-    transition: all 0.5s ease;
+    font-size: clamp(10px, 1vw, 18px);
 }
 th, td {
     padding: 6px;
@@ -83,7 +83,7 @@ tr.highlight {
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- Листочки ----------------
+# ---------------- Анимация листьев ----------------
 leaves_html = ""
 for i in range(25):
     left = random.randint(0, 100)
@@ -93,102 +93,83 @@ for i in range(25):
     leaves_html += f'<div class="leaf" style="left:{left}vw; animation-duration:{duration}s; animation-delay:{delay}s;">{leaf}</div>'
 st.markdown(leaves_html, unsafe_allow_html=True)
 
-# ---------------- Состояние таблицы ----------------
+# ---------------- Инициализация состояния ----------------
 COLUMNS = ["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"]
-
 if "results" not in st.session_state:
     st.session_state.results = pd.DataFrame(columns=COLUMNS)
 if "last_added" not in st.session_state:
     st.session_state.last_added = None
+if "add_clicked" not in st.session_state:
+    st.session_state.add_clicked = False
 
 st.markdown("<h1>Золота Осінь 2025 🍁</h1>", unsafe_allow_html=True)
 
-# ---------------- Отображение таблицы ----------------
-def render_table(df):
-    # гарантируем порядок столбцов
-    df = df.loc[:, COLUMNS].copy()
+# ---------------- Панель судді ----------------
+with st.expander("Панель судді", expanded=True):
+    c1, c2, c3, c4 = st.columns(4)
+    name = c1.text_input("Ім’я")
+    club = c2.text_input("Клуб")
+    event = c3.text_input("Вид")
+    score = c4.text_input("Оцінка (наприклад 27.700)")
 
-    # формат оценки с тысячными (3 знака)
-    df["Оцінка"] = df["Оцінка"].map(lambda x: f"{float(x):.3f}" if pd.notnull(x) else "")
+    colA, colB = st.columns([1, 1])
+    add_btn = colA.button("➕ Додати учасницю")
+    clear_btn = colB.button("🧹 Очистити таблицю")
 
-    # добавляем корону первому месту, если есть строки
-    if len(df) > 0:
-        # безопасно: если в колонке "Ім’я" есть пустые значения, заменим на пустую строку
-        first_name = df.iloc[0]["Ім’я"] if pd.notnull(df.iloc[0]["Ім’я"]) else ""
-        df.iloc[0, df.columns.get_loc("Ім’я")] = f"<span class='crown'>👑 {first_name}</span>"
-
-    # автоматическое уменьшение шрифта в зависимости от числа участниц
-    num_rows = len(df)
-    # formula: при 1-10 строк — крупный, при 61 — минимальный
-    min_font = 9
-    max_font = 20
-    # линейная интерполяция
-    font_size = max(min_font, int(max_font - (num_rows / 61) * (max_font - min_font)))
-    table_style = f"font-size: {font_size}px;"
-
-    # формируем HTML таблицу (строго по колонкам COLUMNS)
-    html = f"<table style='{table_style}'><thead><tr>"
-    for col in COLUMNS:
-        html += f"<th>{col}</th>"
-    html += "</tr></thead><tbody>"
-
-    for _, row in df.iterrows():
-        name_for_highlight = (row["Ім’я"] or "").replace("👑 ", "")
-        cls = "highlight" if name_for_highlight == st.session_state.last_added else ""
-        html += f"<tr class='{cls}'>"
-        for col in COLUMNS:
-            val = row[col] if pd.notnull(row[col]) else ""
-            html += f"<td>{val}</td>"
-        html += "</tr>"
-    html += "</tbody></table>"
-
-    st.markdown(html, unsafe_allow_html=True)
-
-# Показываем таблицу (если есть)
-if not st.session_state.results.empty:
-    render_table(st.session_state.results)
-else:
-    st.info("Поки що немає учасниць.")
-
-# ---------------- Панель судьи (внизу) ----------------
-st.markdown("---")
-st.subheader("⚖️ Панель судді")
-c1, c2, c3, c4 = st.columns(4)
-name = c1.text_input("Ім’я")
-club = c2.text_input("Клуб")
-event = c3.text_input("Вид")
-score = c4.text_input("Оцінка (наприклад 27.700)")
-
-colA, colB = st.columns([1,1])
-add_btn = colA.button("➕ Додати учасницю")
-clear_btn = colB.button("🧹 Очистити таблицю")
-
-# ---------------- Добавление участницы ----------------
-if add_btn:
-    if name.strip() == "" or club.strip() == "" or event.strip() == "" or score.strip() == "":
-        st.error("Всі поля повинні бути заповнені.")
+# ---------------- Додавання учасниці ----------------
+if add_btn and not st.session_state.add_clicked:
+    st.session_state.add_clicked = True
+    if not name or not club or not event or not score:
+        st.error("⚠️ Заповни всі поля перед додаванням!")
     else:
         try:
             score_val = float(score.replace(",", "."))
-            # создаем строку как dict — безопасно для порядка колонок
-            new_row = {
-                "Місце": "",      # пока пусто — пересчитаем ниже
-                "Ім’я": name.strip(),
-                "Клуб": club.strip(),
-                "Вид": event.strip(),
-                "Оцінка": score_val
-            }
-            st.session_state.results = pd.concat([st.session_state.results, pd.DataFrame([new_row])], ignore_index=True)
-
-            # нормализуем и пересортируем
+            new_row = pd.DataFrame(
+                [[None, name.strip(), club.strip(), event.strip(), score_val]],
+                columns=COLUMNS
+            )
+            st.session_state.results = pd.concat(
+                [st.session_state.results, new_row], ignore_index=True
+            )
             st.session_state.results["Оцінка"] = st.session_state.results["Оцінка"].astype(float)
-            st.session_state.results = st.session_state.results.sort_values(by="Оцінка", ascending=False).reset_index(drop=True)
+            st.session_state.results = (
+                st.session_state.results.sort_values(by="Оцінка", ascending=False)
+                .reset_index(drop=True)
+            )
             st.session_state.results["Місце"] = st.session_state.results.index + 1
             st.session_state.last_added = name.strip()
-            # перерендер таблицы — Streamlit сделает rerun автоматически после клика
+            st.experimental_rerun()
         except ValueError:
-            st.error("⚠️ Невірний формат оцінки. Використовуйте число, напр. 27.700")
+            st.error("⚠️ Невірний формат оцінки. Використовуйте число, наприклад 27.700")
+
+if not add_btn:
+    st.session_state.add_clicked = False
 
 if clear_btn:
     st.session_state.results = pd.DataFrame(columns=COLUMNS)
     st.session_state.last_added = None
+    st.experimental_rerun()
+
+# ---------------- Відображення таблиці ----------------
+if not st.session_state.results.empty:
+    df = st.session_state.results.copy()
+    df["Оцінка"] = df["Оцінка"].map(lambda x: f"{x:.3f}")
+
+    # 👑 Корона для 1 місця
+    df.iloc[0, 1] = f"<span class='crown'>👑 {df.iloc[0, 1]}</span>"
+
+    # Масштабування таблиці (без скролу)
+    scale = max(0.6, 1 - len(df) * 0.006)
+    html = f"<div style='transform: scale({scale}); transform-origin: top center;'>"
+    html += "<table><thead><tr>" + "".join(
+        [f"<th>{col}</th>" for col in df.columns]
+    ) + "</tr></thead><tbody>"
+
+    for _, row in df.iterrows():
+        cls = "highlight" if row["Ім’я"].replace('👑 ', '') == st.session_state.last_added else ""
+        html += f"<tr class='{cls}'>" + "".join([f"<td>{x}</td>" for x in row.values]) + "</tr>"
+
+    html += "</tbody></table></div>"
+    st.markdown(html, unsafe_allow_html=True)
+else:
+    st.info("Поки що немає учасниць.")
