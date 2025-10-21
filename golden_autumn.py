@@ -1,180 +1,148 @@
 import streamlit as st
 import pandas as pd
 import random
+from streamlit_gsheets import GSheetsConnection
 
-# ---------- Page config ----------
+# ---------------- Налаштування сторінки ----------------
 st.set_page_config(page_title="Золота Осінь 2025", layout="wide")
 
-# ---------- Styles ----------
-st.markdown(
-    """
+# ---------------- Темна стилізація ----------------
+st.markdown("""
 <style>
-.stApp {
-  background-color: #0d0d0d !important;
-  color: #f6c453 !important;
+body {
+    background-color: #0d0d0d;
+    color: #f6c453;
+    overflow-x: hidden;
 }
 h1 {
-  text-align:center;
-  color:#f6c453;
-  text-shadow:0 0 20px #f6c453;
+    text-align: center;
+    color: #f6c453;
+    font-weight: bold;
+    text-shadow: 0 0 20px #f6c453;
+    animation: glow 2s ease-in-out infinite alternate;
+}
+@keyframes glow {
+    from { text-shadow: 0 0 10px #f6c453; }
+    to { text-shadow: 0 0 35px #ffd700; }
 }
 .leaf {
-  position: fixed;
-  top: -12vh;
-  color: #ffd54f !important;
-  font-size: 28px;
-  opacity: 0.9;
-  animation: fall linear infinite;
-  z-index: 0;
+    position: fixed;
+    top: -10vh;
+    color: #ffd700;
+    font-size: 28px;
+    opacity: 0.8;
+    animation: fall linear infinite;
+    z-index: -1;
 }
 @keyframes fall {
-  0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
-  100% { transform: translateY(120vh) rotate(360deg); opacity: 0.1; }
+    0% { transform: translateY(0) rotate(0deg); }
+    100% { transform: translateY(110vh) rotate(360deg); }
 }
-.table-wrap { width:100%; overflow:auto; }
-.results-table {
-  width:100%; border-collapse: collapse;
-  background: rgba(25,25,25,0.95);
-  color:#f6c453;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-  border-radius:12px;
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(30,30,30,0.9);
+    border-radius: 14px;
+    box-shadow: 0 0 20px rgba(246,196,83,0.3);
 }
-.results-table th, .results-table td {
-  padding:10px; text-align:center;
-  border-bottom:1px solid rgba(246,196,83,0.08);
+th, td {
+    padding: 10px;
+    text-align: center;
+    font-size: 18px;
+    color: #f6c453;
 }
-.results-table th {
-  background:#151515; color:#f6c453; font-weight:600;
+th {
+    background-color: #1e1e1e;
+    border-bottom: 2px solid #f6c453;
 }
-.row-new {
-  animation: slideUp 0.9s cubic-bezier(.2,.8,.2,1);
-  background: rgba(246,196,83,0.05);
+tr.highlight {
+    animation: slideUp 0.8s ease-out;
 }
 @keyframes slideUp {
-  from { transform: translateY(40px); opacity: 0; }
-  to   { transform: translateY(0); opacity: 1; }
+    from { transform: translateY(50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
 .crown {
-  display:inline-block;
-  animation: crownPulse 2.2s ease-in-out infinite;
+    animation: crownPulse 3s ease-in-out infinite;
 }
 @keyframes crownPulse {
-  0%,100% { transform: scale(1); text-shadow: 0 0 10px #ffd54f; }
-  50%    { transform: scale(1.12); text-shadow: 0 0 30px #ffea7a; }
+    0%, 100% { text-shadow: 0 0 10px #ffd700; }
+    50% { text-shadow: 0 0 25px #ffea00; }
 }
 .stButton>button {
-  background: linear-gradient(90deg, #f6c453, #b8860b) !important;
-  color:#0d0d0d !important; border:none; border-radius:8px; padding:8px 14px;
+    background: linear-gradient(90deg, #f6c453, #b8860b);
+    color: #0d0d0d !important;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    padding: 0.6rem 1.2rem;
+}
+.stButton>button:hover {
+    background: linear-gradient(90deg, #ffd700, #f6c453);
 }
 </style>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
-# ---------- Leaves ----------
+# ---------------- Анімація листя ----------------
 leaves_html = ""
-for i in range(28):
+for i in range(25):
     left = random.randint(0, 100)
-    dur = random.uniform(16, 30)
-    delay = random.uniform(0, 20)
-    leaves_html += f'<div class="leaf" style="left:{left}vw; animation-duration:{dur}s; animation-delay:{delay}s;">🍁</div>'
+    duration = random.uniform(15, 30)
+    delay = random.uniform(0, 25)
+    leaf = random.choice(["🍁", "🍂", "🍁", "🍁"])
+    leaves_html += f'<div class="leaf" style="left:{left}vw; animation-duration:{duration}s; animation-delay:{delay}s;">{leaf}</div>'
 st.markdown(leaves_html, unsafe_allow_html=True)
 
-# ---------- Session init ----------
-if "results" not in st.session_state:
-    st.session_state.results = pd.DataFrame(columns=["Місце", "Прізвище", "Клуб", "Вид", "Оцінка"])
-if "last_added" not in st.session_state:
-    st.session_state.last_added = None
+# ---------------- Підключення до Google Sheets ----------------
+conn = st.connection("gsheets", type=GSheetsConnection)
+sheet_df = conn.read(worksheet="Sheet1", ttl=0)
 
-# ---------- Header ----------
-st.markdown("<h1>Золота Осінь 2025</h1>", unsafe_allow_html=True)
+# Перевіряємо, що є колонки
+if sheet_df is None or sheet_df.empty:
+    sheet_df = pd.DataFrame(columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
 
-# ---------- Admin form ----------
-with st.expander("Панель судді (додавання результатів)", expanded=True):
-    with st.form("add_form", clear_on_submit=True):
-        c1, c2, c3, c4 = st.columns(4)
-        fname = c1.text_input("Прізвище")
-        club = c2.text_input("Клуб")
-        event = c3.text_input("Вид")
-        score_input = c4.text_input("Оцінка (напр., 27.750)")
+st.markdown("<h1>Золота Осінь 2025 🍁</h1>", unsafe_allow_html=True)
 
-        submit = st.form_submit_button("➕ Додати учасницю")
-        clear = st.form_submit_button("🧹 Очистити таблицю")
+# ---------------- Панель судді ----------------
+with st.expander("Панель судді", expanded=True):
+    c1, c2, c3, c4 = st.columns(4)
+    name = c1.text_input("Ім’я")
+    club = c2.text_input("Клуб")
+    event = c3.text_input("Вид")
+    score = c4.text_input("Оцінка (наприклад 27.800)")
 
-    # Очищення всієї таблиці
-    if clear:
-        st.session_state.results = pd.DataFrame(columns=["Місце", "Прізвище", "Клуб", "Вид", "Оцінка"])
-        st.session_state.last_added = None
-        st.success("Таблицю очищено!")
+    colA, colB = st.columns(2)
+    add_btn = colA.button("➕ Додати учасницю")
+    clear_btn = colB.button("🧹 Очистити таблицю")
 
-# ---------- Обробка додавання ----------
-if submit:
-    if not fname or not club or not event or not score_input:
-        st.warning("Заповніть всі поля перед додаванням.")
-    else:
+# ---------------- Обробка дій ----------------
+if add_btn:
+    if name and club and event and score:
         try:
-            val = float(score_input.replace(",", "."))
-            new_row = {"Місце": None, "Прізвище": fname.strip(), "Клуб": club.strip(), "Вид": event.strip(), "Оцінка": val}
-            st.session_state.results = pd.concat([st.session_state.results, pd.DataFrame([new_row])], ignore_index=True)
-            st.session_state.results["Оцінка"] = st.session_state.results["Оцінка"].astype(float)
-            st.session_state.results = st.session_state.results.sort_values(by="Оцінка", ascending=False, ignore_index=True)
-            st.session_state.results["Місце"] = range(1, len(st.session_state.results) + 1)
-            st.session_state.last_added = fname.strip()
-            st.success(f"✅ Учасницю {fname} додано!")
+            score_val = float(score.replace(",", "."))
+            new_row = pd.DataFrame([[None, name, club, event, f"{score_val:.3f}"]],
+                                   columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
+            sheet_df = pd.concat([sheet_df, new_row], ignore_index=True)
+            sheet_df["Оцінка"] = sheet_df["Оцінка"].astype(float)
+            sheet_df = sheet_df.sort_values(by="Оцінка", ascending=False).reset_index(drop=True)
+            sheet_df["Місце"] = sheet_df.index + 1
+            conn.update(worksheet="Sheet1", data=sheet_df)
+            st.success("✅ Учасницю додано!")
         except ValueError:
-            st.error("Неправильний формат оцінки. Використайте число, напр. 27.750")
+            st.error("⚠️ Перевір формат оцінки!")
 
-# ---------- Відображення таблиці ----------
-df_display = st.session_state.results.copy()
-if not df_display.empty:
-    df_display["Оцінка"] = df_display["Оцінка"].map(lambda x: f"{x:.3f}")
-    df_display.loc[0, "Прізвище"] = f"<span class='crown'>👑 {df_display.loc[0, 'Прізвище']}</span>"
+if clear_btn:
+    conn.update(worksheet="Sheet1", data=pd.DataFrame(columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"]))
+    st.warning("🧹 Таблицю очищено!")
 
-    rows = ""
-    for _, r in df_display.iterrows():
-        cls = "row-new" if (st.session_state.last_added and str(r["Прізвище"]).replace('👑 ','').lower() == st.session_state.last_added.lower()) else ""
-        rows += (
-            f"<tr class='{cls}'>"
-            f"<td>{int(r['Місце'])}</td>"
-            f"<td>{r['Прізвище']}</td>"
-            f"<td>{r['Клуб']}</td>"
-            f"<td>{r['Вид']}</td>"
-            f"<td>{r['Оцінка']}</td>"
-            f"</tr>"
-        )
-
-    table_html = (
-        "<div class='table-wrap'>"
-        "<table class='results-table'>"
-        "<thead><tr><th>Місце</th><th>Прізвище</th><th>Клуб</th><th>Вид</th><th>Оцінка</th></tr></thead>"
-        f"<tbody>{rows}</tbody></table></div>"
-    )
-    st.markdown(table_html, unsafe_allow_html=True)
+# ---------------- Відображення таблиці ----------------
+if not sheet_df.empty:
+    df = sheet_df.copy()
+    df.iloc[0, 1] = f"<span class='crown'>👑 {df.iloc[0, 1]}</span>"
+    html = "<table><thead><tr>" + "".join([f"<th>{col}</th>" for col in df.columns]) + "</tr></thead><tbody>"
+    for _, row in df.iterrows():
+        html += f"<tr>" + "".join([f"<td>{x}</td>" for x in row.values]) + "</tr>"
+    html += "</tbody></table>"
+    st.markdown(html, unsafe_allow_html=True)
 else:
-    st.markdown(
-        """
-        <div class="table-wrap">
-          <table class="results-table">
-            <thead><tr><th>Місце</th><th>Прізвище</th><th>Клуб</th><th>Вид</th><th>Оцінка</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-# ---------- Корона "пульсує" кожні 25 секунд ----------
-st.markdown(
-    """
-<script>
-setInterval(()=>{
-  const c = document.querySelector('.crown');
-  if(c){
-    c.style.transform = 'scale(1.15)';
-    setTimeout(()=>{ c.style.transform = 'scale(1)'; }, 1000);
-  }
-}, 25000);
-</script>
-""",
-    unsafe_allow_html=True,
-)
+    st.info("Поки що немає учасниць — додай першу нижче 👇")
