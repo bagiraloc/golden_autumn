@@ -92,33 +92,34 @@ if "results" not in st.session_state:
 
 st.markdown("<h1>Золота Осінь 2025 🍂</h1>", unsafe_allow_html=True)
 
-if not st.session_state.results.empty:
-    sorted_df = st.session_state.results.sort_values(by="Оцінка", ascending=False).reset_index(drop=True)
-    sorted_df["Місце"] = sorted_df.index + 1
-    # Коронка переможниці
-    if not sorted_df.empty:
-        sorted_df.iloc[0, 1] = f"👑 {sorted_df.iloc[0, 1]}"
-    st.markdown(sorted_df.to_html(index=False, classes="results-table"), unsafe_allow_html=True)
-else:
-    st.info("Поки що немає учасниць. Додайте першу нижче 👇")
-
-# -------------------- Форма для введення --------------------
-with st.expander("🔒 Панель судді", expanded=False):
+# -------------------- Форма --------------------
+with st.expander("🔒 Панель судді", expanded=True):
     col1, col2, col3, col4 = st.columns(4)
     name = col1.text_input("Ім’я")
     club = col2.text_input("Клуб")
     category = col3.text_input("Вид")
     score = col4.number_input("Оцінка", min_value=0.0, max_value=60.0, step=0.05)
 
-    add_btn = st.button("➕ Додати учасницю")
-    clear_btn = st.button("🧹 Очистити таблицю")
+    col5, col6 = st.columns([1,1])
+    add_btn = col5.button("➕ Додати учасницю")
+    clear_btn = col6.button("🧹 Очистити таблицю")
 
 # -------------------- Обробка --------------------
-if add_btn and name and club and category:
-    new_row = pd.DataFrame([[None, name, club, category, score]], columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
-    st.session_state.results = pd.concat([st.session_state.results, new_row], ignore_index=True)
-    st.experimental_rerun()
+if add_btn:
+    if name and club and category:
+        new_row = pd.DataFrame([[None, name, club, category, score]], columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
+        st.session_state.results = pd.concat([st.session_state.results, new_row], ignore_index=True)
+        st.session_state.results["Оцінка"] = st.session_state.results["Оцінка"].astype(float)
+        st.session_state.results = st.session_state.results.sort_values(by="Оцінка", ascending=False).reset_index(drop=True)
+        st.session_state.results["Місце"] = st.session_state.results.index + 1
+        st.experimental_rerun()
 
 if clear_btn:
     st.session_state.results = pd.DataFrame(columns=["Місце", "Ім’я", "Клуб", "Вид", "Оцінка"])
     st.experimental_rerun()
+
+# -------------------- Відображення --------------------
+if not st.session_state.results.empty:
+    df = st.session_state.results.copy()
+    df.iloc[0, 1] = f"👑 {df.iloc[0, 1]}"
+    st.markdown(df.to_html(index=False), unsafe_allow_html=True)
